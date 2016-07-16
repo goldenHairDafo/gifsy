@@ -1,6 +1,3 @@
-#![feature(macro_rules)]
-use std::borrow::Cow;
-
 use super::*;
 
 #[macro_export]
@@ -16,13 +13,13 @@ macro_rules! parsers {
     };
 }
 
-pub type ParserFn<'a> = fn(&'a str, &mut Status<'a>) -> Option<&'a str>;
+pub type ParserFn<'a> = fn(&'a str, &mut Status) -> Option<&'a str>;
 
-pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) -> Vec<Status<'a>> {
+pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) -> Vec<Status> {
     let mut s: Vec<Status> = Vec::new();
     let mut rest: &'a str = sstr;
     while rest.len() > 1 {
-        let mut status: Status = Status{index: '\0', tree: '\0', from_file: Cow::Owned("".to_string()), to_file: Cow::Owned("".to_string())};
+        let mut status: Status = Status{index: '\0', tree: '\0', from_file: "".to_string(), to_file: "".to_string()};
         for p in &parsers {
             rest = match p(rest, &mut status) {
                 Some(r) => r,
@@ -34,7 +31,7 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) -> Vec<Status<'a
     s
 }
 
-pub fn parse_index<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
+pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
     match parse_utf8_char(s, "MADRU ") {
         Some((c, cs)) => {status.index = c;
                           Some(cs)} ,
@@ -42,7 +39,7 @@ pub fn parse_index<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
     }
 }
 
-pub fn parse_tree<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
+pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
     match parse_utf8_char(s, "MADU ") {
         Some((c, cs)) => {status.tree = c;
                           Some(cs)} ,
@@ -50,20 +47,20 @@ pub fn parse_tree<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
     }
 }
 
-pub fn parse_from<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
+pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
     let (f, rest) = parse_filename(s);
     match f {
-        Some(file) => status.from_file = Cow::Borrowed(file),
+        Some(file) => status.from_file = file.to_string(),
         None => {}
     };
     rest
 }
 
-pub fn parse_to<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
+pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
     if status.index == 'R' {
         let (f, rest) = parse_filename(s);
         match f {
-            Some(file) => status.to_file = Cow::Borrowed(file),
+            Some(file) => status.to_file = file.to_string(),
             None => {}
         };
         rest
@@ -72,7 +69,7 @@ pub fn parse_to<'a>(s: &'a str, status: &mut Status<'a>) -> Option<&'a str> {
     }
 }
 
-fn parse_utf8_char<'a>(s: &'a str, charset: &'static str) -> Option<(char, &'a str)> {
+pub fn parse_utf8_char<'a>(s: &'a str, charset: &'static str) -> Option<(char, &'a str)> {
     let mut cs = s.chars();
 
     match cs.next() {
@@ -118,7 +115,7 @@ mod tests {
         let input = "demo\u{0}second\u{0}";
 
         let (f, rest) = parse_filename(input);
-        println!("{} {}", f, rest);
+        println!("{:?} {:?}", f, rest);
         assert!(f.unwrap() == "demo");
         assert!(rest.unwrap() == "second\u{0}");
     }
@@ -128,7 +125,7 @@ mod tests {
         let input = "demo\u{0}";
 
         let (f, rest) = parse_filename(input);
-        println!("{} {}", f, rest);
+        println!("{:?} {:?}", f, rest);
         assert!(f.unwrap() == "demo");
         assert!(rest.unwrap() == "");
     }
@@ -138,7 +135,7 @@ mod tests {
         let input = "demo";
 
         let (f, rest) = parse_filename(input);
-        println!("{} {}", f, rest);
+        println!("{:?} {:?}", f, rest);
         assert!(f.unwrap() == "demo");
         assert!(rest.unwrap() == "");
     }
