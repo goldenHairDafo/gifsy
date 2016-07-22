@@ -1,4 +1,5 @@
 use super::*;
+use std::str;
 
 #[macro_export]
 macro_rules! parsers {
@@ -15,20 +16,22 @@ macro_rules! parsers {
 
 pub type ParserFn<'a> = fn(&'a str, &mut Status) -> Option<&'a str>;
 
-pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) -> Vec<Status> {
-    let mut s: Vec<Status> = Vec::new();
+pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
+    Result<Vec<Box<Status>>,&'a str>
+{
+    let mut s: Vec<Box<Status>> = Vec::new();
     let mut rest: &'a str = sstr;
     while rest.len() > 1 {
-        let mut status: Status = Status{index: '\0', tree: '\0', from_file: "".to_string(), to_file: "".to_string()};
+        let mut status: Box<Status> = Box::new(Status{index: '\0', tree: '\0', from_file: "".to_string(), to_file: "".to_string()});
         for p in &parsers {
-            rest = match p(rest, &mut status) {
+            rest = match p(rest, status.as_mut()) {
                 Some(r) => r,
-                None => break
+                None => return Err("")
             }
         }
         s.push(status);
     }
-    s
+    Ok(s)
 }
 
 pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
@@ -48,12 +51,10 @@ pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
 }
 
 pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
-    let (f, rest) = parse_filename(s);
-    match f {
-        Some(file) => status.from_file = file.to_string(),
-        None => {}
-    };
-    rest
+    match parse_c_string(s) {
+        Some((file, rest)) => {status.from_file = file.to_string(); Some(rest)},
+        None => None,
+    }
 }
 
 pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
@@ -82,7 +83,21 @@ pub fn parse_utf8_char<'a>(s: &'a str, charset: &'static str) -> Option<(char, &
     }
 }
 
-pub fn parse_filename<'a>(s: &'a str) -> (Option<&'a str>, Option<&'a str>) {
+const TERMINATOR: char = '\u{0}';
+
+/// take any character until it meets a zero-byte or the end and
+/// returns the found string and the rest of the string
+pub fn parse_c_string(stream: &str) -> Option<(&str,&str)> {
+
+    let pos = match stream.chars().position(|c| c == TERMINATOR) {
+        Some(pos) => pos,
+        None => return None,
+    };
+
+    Some((&stream[0..pos], &stream[(pos+1)..]))
+}
+
+fn parse_filename<'a>(s: &'a str) -> (Option<&'a str>, Option<&'a str>) {
     let  v: Vec<&str> = s.splitn(2, "\u{0}").collect();
     match v.len() {
         1 => (Some(v[0]), None),
@@ -111,32 +126,38 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_file() {
+    fn test_match_til_zero() {
         let input = "demo\u{0}second\u{0}";
 
-        let (f, rest) = parse_filename(input);
+        let (f, rest) = match parse_c_string(input){
+            Some((f, rest)) => (f,rest),
+            None => ("",""),
+        };
         println!("{:?} {:?}", f, rest);
-        assert!(f.unwrap() == "demo");
-        assert!(rest.unwrap() == "second\u{0}");
+        assert!(f == "demo");
+        assert!(rest == "second\u{0}");
     }
 
     #[test]
     fn test_parse_file_single() {
         let input = "demo\u{0}";
 
-        let (f, rest) = parse_filename(input);
+        let (f, rest) = match parse_c_string(input){
+            Some((f, rest)) => (f,rest),
+            None => ("",""),
+        };
         println!("{:?} {:?}", f, rest);
-        assert!(f.unwrap() == "demo");
-        assert!(rest.unwrap() == "");
+        assert!(f == "demo");
+        assert!(rest == "");
     }
 
     #[test]
     fn test_parse_file_fail() {
         let input = "demo";
 
-        let (f, rest) = parse_filename(input);
-        println!("{:?} {:?}", f, rest);
-        assert!(f.unwrap() == "demo");
-        assert!(rest.unwrap() == "");
+        let (_, _) = match parse_c_string(input){
+            Some((f, rest)) => { assert!(false); (f,rest)},
+            None => ("", ""),
+        };
     }
 }

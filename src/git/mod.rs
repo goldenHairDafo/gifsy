@@ -2,7 +2,8 @@ use std::process::{Command,Stdio};
 use std::fmt;
 use std::fs;
 use std::path;
-use std::io::Write;
+use std::str;
+use std::io::{Write};
 use std::string::*;
 
 use chrono::Local;
@@ -12,11 +13,18 @@ use self::parser::*;
 #[macro_use]
 pub mod parser;
 
+#[derive(Clone)]
 pub struct Status {
     index: char,
     tree: char,
     from_file: String,
     to_file: String
+}
+
+impl Status {
+    pub fn is_unmerged(&self) -> bool {
+        self.index == 'U' || self.tree == 'U'
+    }
 }
 
 impl fmt::Debug for Status {
@@ -39,6 +47,7 @@ impl fmt::Display for Status {
     }
 }
 
+
 /// Check if the repository path is actual a git repository with
 /// a working tree
 pub fn is_repos(repo: &str) -> bool {
@@ -57,32 +66,47 @@ pub fn is_repos(repo: &str) -> bool {
     }
 }
 
-pub fn add<'a>(repo: &str,status: Vec<Status>) -> Result<Vec<Status>,String> {
+pub type CmdFn<'a, F> = fn(&'a str) -> Result<F, String>;
+
+pub fn with_repo<'a, F, C>(repo: &'a str, cmd: C) -> Result<F, String>
+    where C: Fn(&'a str) -> (F, String)
+{
     if is_repos(repo) {
+        let (rc, err) = cmd(repo);
+        if "" == err {
+            Ok(rc)
+        } else {
+            Err(err)
+        }
+    } else {
+        Err(format!("{} is not a repository", repo))
+    }
+}
+
+pub fn add<'a>(repo: &str,status: Vec<Box<Status>>) -> Result<Vec<Box<Status>>,String> {
+    with_repo(repo, move |r| {
         let mut rc = Vec::new();
-        for s in status {
-            if s.index == 'U' || s.tree == 'U' {
+        for s in &status {
+            if s.is_unmerged() {
                 continue;
             }
             let to_file = s.to_file.clone();
             let output = Command::new("git")
-                .current_dir(repo)
+                .current_dir(r)
                 .arg("add")
                 .arg(&to_file)
                 .output()
                 .expect("can't execute git status");
             if !output.status.success() {
-                return Err(format!("can't add {} ({})", &to_file, String::from_utf8_lossy(&output.stdout)))
+                return (rc, format!("can't add {} ({})", &to_file, String::from_utf8_lossy(&output.stdout)))
             }
-            rc.push(s);
+            rc.push(s.clone());
         }
-        Ok(rc)
-    } else {
-        Err(format!("{} is not a git repository", repo))
-    }
+        (rc, "".to_string())
+    })
 }
 
-pub fn commit<'a>(repo: &str,status: Vec<Status>) -> Result<i32,String> {
+pub fn commit<'a>(repo: &str,status: Vec<Box<Status>>) -> Result<i32,String> {
     if is_repos(repo) {
         let process = match Command::new("git")
             .current_dir(repo)
@@ -105,68 +129,68 @@ pub fn commit<'a>(repo: &str,status: Vec<Status>) -> Result<i32,String> {
     }
 }
 
-pub fn status<'a >(repo: &'a str) -> Result<Vec<Status>, String> {
+pub fn status<'a >(repo: &'a str) -> Result<Vec<Box<Status>>, String> {
     if is_repos(repo) {
-        let output = Command::new("git")
+        match Command::new("git")
             .current_dir(repo)
             .arg("status")
             .arg("--porcelain")
-            .arg("-z")
-            .output()
-            .expect("can't execute git status");
-
-        if output.status.success() {
-            let outstr = String::from_utf8_lossy(&output.stdout);
-            let rest: &str = &outstr;
-            let p = parsers![parse_index, parse_tree, parse_from, parse_to];
-            let s = parse::<Vec<Status>>(&rest, p);
-            Ok(s)
-        } else {
-           Err(format!("can't execute git sstatus ({})", output.status.code().unwrap()))
-        }
+            .arg("-z").output() {
+                Err(e) => Err(format!("can't execute git sstatus ({})", e)),
+                Ok(output) => if output.status.success() {
+                        let rest = String::from_utf8_lossy(&output.stdout);
+                        let p = parsers![parse_index, parse_tree, parse_from, parse_to];
+                        match parse::<Vec<&Status>>(&rest, p) {
+                            Err(e) => return Err(format!("can't parse git sstatus ({})", e)),
+                            Ok(status) => Ok(status),
+                        }
+                    } else {
+                        Err(format!("can't execute git sstatus ({})", output.status.code().unwrap()))
+                    }
+            }
     } else {
         Err(format!("{} is not a git repository", repo))
     }
 }
 
-pub fn pull<'a >(repo: &'a str) -> Result<i32,i32> {
+pub fn pull<'a >(repo: &'a str) -> Result<i32,String> {
     if is_repos(repo) {
         let output = Command::new("git")
             .current_dir(repo)
             .arg("pull")
-            .arg("orign")
+            .arg("origin")
             .output()
             .expect("can't execute git status");
 
         if output.status.success() {
             Ok(0)
         } else {
-            Err(output.status.code().unwrap())
+            Err(format!("{}", String::from_utf8_lossy(&output.stderr)).to_string())
         }
     } else {
-        Err(1)
+        Err(format!("{} not a repository",repo).to_string())
     }
 }
 
-pub fn push<'a >(repo: &'a str) -> Result<i32,i32> {
+pub fn push<'a >(repo: &'a str) -> Result<i32,String> {
     if is_repos(repo) {
         let output = Command::new("git")
             .current_dir(repo)
             .arg("push")
-            .arg("orign")
+            .arg("origin")
             .output()
             .expect("can't execute git status");
 
         if output.status.success() {
             Ok(0)
         } else {
-            Err(output.status.code().unwrap())
+            Err(format!("{}", String::from_utf8_lossy(&output.stderr)).to_string())
         }
     } else {
-        Err(1)
+        Err(format!("{} not a repository",repo).to_string())
     }
 }
-pub fn create_commit_message(status: Vec<Status>) -> Result<String,FromUtf8Error> {
+pub fn create_commit_message(status: Vec<Box<Status>>) -> Result<String,FromUtf8Error> {
     let mut commitmsg = Vec::new();
     writeln!(&mut commitmsg, "changes from {}\n", Local::now().to_rfc2822()).unwrap();
     for s in status {
