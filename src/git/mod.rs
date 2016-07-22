@@ -88,6 +88,7 @@ pub fn add<'a>(repo: &str,status: Vec<Box<Status>>) -> Result<Vec<Box<Status>>,S
         let mut rc = Vec::new();
         for s in &status {
             if s.is_unmerged() {
+                warn!("unmerged file {}", s);
                 continue;
             }
             let to_file = s.to_file.clone();
@@ -115,7 +116,7 @@ pub fn commit<'a>(repo: &str,status: Vec<Box<Status>>) -> Result<i32,String> {
             .arg("-")
             .stdin(Stdio::piped())
             .spawn() {
-                Err(e) => panic!("can't commit {}", e),
+                Err(e) => return Err(format!("can't start git commit {}", e)),
                 Ok(process) => process,
             };
         let msg = create_commit_message(status).unwrap();
@@ -190,6 +191,7 @@ pub fn push<'a >(repo: &'a str) -> Result<i32,String> {
         Err(format!("{} not a repository",repo).to_string())
     }
 }
+
 pub fn create_commit_message(status: Vec<Box<Status>>) -> Result<String,FromUtf8Error> {
     let mut commitmsg = Vec::new();
     writeln!(&mut commitmsg, "changes from {}\n", Local::now().to_rfc2822()).unwrap();
