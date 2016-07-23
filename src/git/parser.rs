@@ -35,7 +35,7 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
 }
 
 pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
-    match parse_utf8_char(s, "MADRU ") {
+    match parse_utf8_char(s, "MADRU? ") {
         Some((c, cs)) => {status.index = c;
                           Some(cs)} ,
         None => None,
@@ -43,7 +43,7 @@ pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
 }
 
 pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
-    match parse_utf8_char(s, "MADU ") {
+    match parse_utf8_char(s, "MADU? ") {
         Some((c, cs)) => {status.tree = c;
                           Some(cs)} ,
         None => None,

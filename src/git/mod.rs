@@ -112,7 +112,7 @@ pub fn commit<'a>(repo: &str,status: Vec<Box<Status>>) -> Result<i32,String> {
         let process = match Command::new("git")
             .current_dir(repo)
             .arg("commit")
-            .arg("-f")
+            .arg("--file")
             .arg("-")
             .stdin(Stdio::piped())
             .spawn() {

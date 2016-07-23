@@ -5,6 +5,6 @@ authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]
 chrono = "0.2"
-clap = {version = "2",  features = ["yaml"]}
+clap = "2"
 env_logger = "0.3"
 log = "0.3"
