@@ -34,7 +34,9 @@ fn main() {
         Some(repo) => repo.to_string(),
         None => {
             info!("use default repository path");
-            let home = env::var("HOME").ok().expect("HOME environemnt variable not found");
+            let home = env::var("HOME")
+                .ok()
+                .expect("HOME environemnt variable not found");
             let mut defaultpath = Box::new( path::PathBuf::from(home));
             defaultpath.push("Shared");
             defaultpath.push("sync");
@@ -45,14 +47,16 @@ fn main() {
 
     let r = match git::Repository::from(repo) {
         Ok(r) => r,
-        Err(e) => {error!("can't create repository{}", e); std::process::exit(1)}
+        Err(e) => {error!("can't create repository{}", e);
+                   std::process::exit(1)}
     };
 
     let ecode = match matches.subcommand_name() {
         Some(subcmd) => match subcmd {
             "status" => status(&r),
             "sync" => sync(&r),
-            n => {error!("unknown subcommand {} found", n); std::process::exit(RC_ERR_SUBCMD_UNKNOWN) }
+            n => {error!("unknown subcommand {} found", n);
+                  std::process::exit(RC_ERR_SUBCMD_UNKNOWN) }
         },
         None =>{error!("no subcommand found");
                 println!("{}", matches.usage());
@@ -83,33 +87,37 @@ fn sync(repo: &git::Repository) -> i32 {
 
     debug!("pull changes");
     match repo.pull() {
-        Ok(i) => i,
-        Err(e) => { error!("pull error {}", e); return RC_ERR_SYNC_PULL}
+        Ok(_) => 0,
+        Err(e) => { error!("pull error {}", e);
+                    return RC_ERR_SYNC_PULL}
     };
     let mut status = match repo.status() {
         Ok(status) => status,
-        Err(e) => { error!("status error {}", e); return RC_ERR_SYNC_STATUS}
+        Err(e) => { error!("status error {}", e);
+                    return RC_ERR_SYNC_STATUS}
     };
     if status.len() > 0 {
         debug!("add and push local changes");
         status = match repo.add(status) {
             Ok(status) => status,
-            Err(e) => { error!("add error {}", e); return RC_ERR_SYNC_ADD}
+            Err(e) => { error!("add error {}", e);
+                        return RC_ERR_SYNC_ADD}
         };
         match repo.commit(status) {
-            Err(e) => { error!("commit {}", e); return RC_ERR_SYNC_COMMIT}
-            Ok(_) => RC_OK
+            Ok(_) => 0,
+            Err(e) => { error!("commit {}", e);
+                        return RC_ERR_SYNC_COMMIT}
         };
         match repo.push()  {
-            Err(e) => { error!("push {}", e); return RC_ERR_SYNC_PUSH}
-            Ok(_) => RC_OK
+            Ok(_) => 0,
+            Err(e) => { error!("push {}", e);
+                        return RC_ERR_SYNC_PUSH}
         }
     } else {
         debug!("no local changes");
         RC_OK
     }
 }
-
 fn arguments<'a>() -> ArgMatches<'a> {
     App::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")

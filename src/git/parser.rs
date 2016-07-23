@@ -22,7 +22,11 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
     let mut s: Vec<Box<Status>> = Vec::new();
     let mut rest: &'a str = sstr;
     while rest.len() > 1 {
-        let mut status: Box<Status> = Box::new(Status{index: '\0', tree: '\0', from_file: "".to_string(), to_file: "".to_string()});
+        let mut status: Box<Status> =
+            Box::new(Status{index: '\0',
+                            tree: '\0',
+                            from_file: "".to_string(),
+                            to_file: "".to_string()});
         for p in &parsers {
             rest = match p(rest, status.as_mut()) {
                 Some(r) => r,
@@ -52,7 +56,8 @@ pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
 
 pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
     match parse_c_string(s) {
-        Some((file, rest)) => {status.from_file = file.to_string(); Some(rest)},
+        Some((file, rest)) => {status.from_file = file.to_string();
+                               Some(rest)},
         None => None,
     }
 }
