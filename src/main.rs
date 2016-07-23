@@ -43,10 +43,15 @@ fn main() {
     };
     debug!("use repository {}", repo);
 
+    let r = match git::Repository::from(repo) {
+        Ok(r) => r,
+        Err(e) => {error!("can't create repository{}", e); std::process::exit(1)}
+    };
+
     let ecode = match matches.subcommand_name() {
         Some(subcmd) => match subcmd {
-            "status" => status(repo),
-            "sync" => sync(repo),
+            "status" => status(&r),
+            "sync" => sync(&r),
             n => {error!("unknown subcommand {} found", n); std::process::exit(RC_ERR_SUBCMD_UNKNOWN) }
         },
         None =>{error!("no subcommand found");
@@ -57,10 +62,11 @@ fn main() {
     std::process::exit(ecode);
 }
 
-fn status(repo: &str) -> i32 {
+fn status(repo: &git::Repository) -> i32 {
 
     debug!("check status");
-    let status = git::status(repo);
+
+    let status = repo.status();
 
     match status {
         Ok(s) => {
@@ -71,32 +77,32 @@ fn status(repo: &str) -> i32 {
     }
 }
 
-fn sync(repo: &str) -> i32 {
+fn sync(repo: &git::Repository) -> i32 {
 
     debug!("syncronize repository");
 
     debug!("pull changes");
-    match git::pull(repo) {
+    match repo.pull() {
         Ok(i) => i,
         Err(e) => { error!("pull error {}", e); return RC_ERR_SYNC_PULL}
     };
-    let mut status = match git::status(repo) {
+    let mut status = match repo.status() {
         Ok(status) => status,
         Err(e) => { error!("status error {}", e); return RC_ERR_SYNC_STATUS}
     };
     if status.len() > 0 {
         debug!("add and push local changes");
-        status = match git::add(repo, status) {
+        status = match repo.add(status) {
             Ok(status) => status,
             Err(e) => { error!("add error {}", e); return RC_ERR_SYNC_ADD}
         };
-        match git::commit(repo, status) {
-            Ok(i) => i,
+        match repo.commit(status) {
             Err(e) => { error!("commit {}", e); return RC_ERR_SYNC_COMMIT}
+            Ok(_) => RC_OK
         };
-        match git::push(repo) {
-            Ok(i) => i,
+        match repo.push()  {
             Err(e) => { error!("push {}", e); return RC_ERR_SYNC_PUSH}
+            Ok(_) => RC_OK
         }
     } else {
         debug!("no local changes");
