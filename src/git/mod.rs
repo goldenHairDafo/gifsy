@@ -30,18 +30,17 @@ impl fmt::Display for GifsyError {
             GifsyError::ParserError(..) => write!(f, "parser error")
 
         }
-
     }
 }
 
 impl error::Error for GifsyError {
     fn description(&self) -> &str {
-            match *self {
-                GifsyError::CmdFail(..) => "the git command couldn't be executed",
-                GifsyError::NoRepoitory => "The path used is not a git repository with a working tree",
-                GifsyError::IoError(ref e) => e.description(),
-                GifsyError::ParserError(..) => "parser error"
-            }
+        match *self {
+            GifsyError::CmdFail(..) => "the git command couldn't be executed",
+            GifsyError::NoRepoitory => "The path used is not a git repository with a working tree",
+            GifsyError::IoError(ref e) => e.description(),
+            GifsyError::ParserError(..) => "parser error"
+        }
     }
 }
 
@@ -130,11 +129,11 @@ impl Repository {
             .expect("can't execute git status");
 
         if output.status.success() {
-            Ok({})
+            Ok(())
         } else {
-            return Err(GifsyError::CmdFail(output.status.code().unwrap(),
-                                           format!("can't pull: {}",
-                                                   String::from_utf8_lossy(&output.stdout))))
+            Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                    format!("can't pull: {}",
+                                            String::from_utf8_lossy(&output.stdout))))
         }
     }
     pub fn push<'a >(&self) -> Result<(),GifsyError> {
@@ -146,11 +145,11 @@ impl Repository {
             .expect("can't execute git status");
 
         if output.status.success() {
-            Ok({})
+            Ok(())
         } else {
-            return Err(GifsyError::CmdFail(output.status.code().unwrap(),
-                                           format!("can't push: {}",
-                                                   String::from_utf8_lossy(&output.stdout))))
+            Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                    format!("can't push: {}",
+                                            String::from_utf8_lossy(&output.stdout))))
         }
     }
 }
