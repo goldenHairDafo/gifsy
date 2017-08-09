@@ -48,13 +48,18 @@ fn main() {
 
     debug!("GIt FileSYncronization startet");
 
-    // Work the command line arguments
-    let matches = arguments();
-
-    let repo = &match  matches.value_of("repo") {
-        Some(repo) => repo.to_string(),
-        None => {
-            info!("use default repository path");
+    let host_env = match env::var("HOST") {
+        Ok(h) => h,
+        Err(_) => String::from("Unknown Host")
+    };
+    let name_env = match env::var("GIFSY_NAME") {
+        Ok(h) => h,
+        Err(_) => host_env
+    };
+    let repo_path_env = match env::var("GIFSY_REPO") {
+        Ok(h) => h,
+        Err(_) => {
+            debug!("use default repository path");
             let home = env::var("HOME")
                 .ok()
                 .expect("HOME environemnt variable not found");
@@ -64,9 +69,22 @@ fn main() {
             defaultpath.to_string_lossy().into_owned()
         }
     };
+
+
+    // Work the command line arguments
+    let matches = arguments();
+
+    let repo = &match  matches.value_of("repo") {
+        Some(repo) => repo.to_string(),
+        None => repo_path_env
+    };
+    let name = &match  matches.value_of("name") {
+        Some(repo) => repo.to_string(),
+        None => name_env
+    };
     debug!("use repository {}", repo);
 
-    let r = match git::Repository::from(repo) {
+    let r = match git::Repository::from(repo, &name) {
         Ok(r) => r,
         Err(e) => {error!("can't create repository{}", e);
                    std::process::exit(MainError::NoRepository.code())}
@@ -97,7 +115,7 @@ fn status(repo: &git::Repository) -> Result<(), MainError> {
 
     let status = try!(repo.status());
 
-    println!("{}", git::create_commit_message(status).unwrap() );
+    println!("{}", git::create_commit_message(status, &repo.name()).unwrap() );
     Ok(())
 }
 
@@ -131,11 +149,17 @@ fn arguments<'a>() -> ArgMatches<'a> {
         .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(Arg::with_name("repo")
-              .short("-r")
-              .long("repo")
-              .value_name("PATH")
+             .short("-r")
+             .long("repo")
+             .value_name("PATH")
+             .takes_value(true)
+             .help("Sets the path to the repository"))
+        .arg(Arg::with_name("name")
+              .short("-n")
+              .long("name")
+              .value_name("NAME")
               .takes_value(true)
-              .help("Sets the path to the repository"))
+              .help("Sets the name to identify the host"))
         .subcommand(SubCommand::with_name("sync")
                     .about("Synchronize the repository"))
         .subcommand(SubCommand::with_name("status")

@@ -45,19 +45,24 @@ impl error::Error for GifsyError {
 }
 
 pub struct Repository {
-    path: String
+    path: String,
+    name: String
 }
 
 impl Repository {
-    pub fn from(path: &str) -> Result<Repository,GifsyError> {
+    pub fn from(path: &str, name: &str) -> Result<Repository,GifsyError> {
         let repository_path = path::PathBuf::from(path);
         if repository_path.as_path().is_dir() {
             Ok(Repository {
-                path: path.to_owned()
+                path: path.to_owned(),
+                name: name.to_owned()
             })
         } else {
             Err(GifsyError::NoRepoitory)
         }
+    }
+    pub fn name(&self) -> String {
+        return self.name.clone();
     }
     pub fn status<'a >(&self) -> Result<Vec<Box<Status>>, GifsyError> {
         match Command::new("git")
@@ -93,6 +98,7 @@ impl Repository {
                     .arg(&to_file)
                     .output()
                     .expect("can't execute git status");
+
                 if !output.status.success() {
                     return Err(GifsyError::CmdFail(output.status.code().unwrap(),
                                                    format!("can't add {} ({})",
@@ -114,7 +120,7 @@ impl Repository {
                 Err(e) => return Err(GifsyError::IoError(e)),
                 Ok(process) => process,
             };
-        let msg = create_commit_message(status).unwrap();
+        let msg = create_commit_message(status, &self.name).unwrap();
         match process.stdin.unwrap().write_all(msg.as_bytes()){
             Err(e) => return Err(GifsyError::IoError(e)),
             Ok(_) => Ok({}),
@@ -266,10 +272,10 @@ impl fmt::Display for Status {
     }
 }
 
-pub fn create_commit_message(status: Vec<Box<Status>>) -> Result<String,FromUtf8Error> {
+pub fn create_commit_message(status: Vec<Box<Status>>,name: &str) -> Result<String,FromUtf8Error> {
     let mut commitmsg = Vec::new();
-    writeln!(&mut commitmsg, "changes from {}\n",
-             Local::now().to_rfc2822()).unwrap();
+    writeln!(&mut commitmsg, "changes on {} at {}\n",
+             name, Local::now().to_rfc2822()).unwrap();
     for s in status {
         writeln!(&mut commitmsg, "{}", s).unwrap();
     }
