@@ -14,7 +14,7 @@ macro_rules! parsers {
     };
 }
 
-pub type ParserFn<'a> = fn(&'a str, &mut Status) -> Option<&'a str>;
+pub type ParserFn<'a> = fn(&'a str, &mut Status) -> Result<Option<&'a str>,&'a str>;
 
 pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
     Result<Vec<Box<Status>>,&'a str>
@@ -28,7 +28,7 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
                             from_file: "".to_string(),
                             to_file: "".to_string()});
         for p in &parsers {
-            rest = match p(rest, status.as_mut()) {
+            rest = match try!(p(rest, status.as_mut())) {
                 Some(r) => r,
                 None => return Err("")
             }
@@ -38,40 +38,35 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
     Ok(s)
 }
 
-pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
-    match parse_utf8_char(s, "MADRU? ") {
+pub fn parse_index<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
+     match parse_utf8_char(s, "MADRU? ") {
         Some((c, cs)) => {status.index = c;
-                          Some(cs)} ,
-        None => None,
+                          Ok(Some(cs))} ,
+        None => Err(""),
     }
 }
 
-pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
+pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>,&'a str> {
     match parse_utf8_char(s, "MADU? ") {
         Some((c, cs)) => {status.tree = c;
-                          Some(cs)} ,
-        None => None,
+                          Ok(Some(cs))} ,
+        None => Err("")
     }
 }
 
-pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
-    match parse_c_string(s) {
-        Some((file, rest)) => {status.from_file = file.to_string();
-                               Some(rest)},
-        None => None,
-    }
+pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
+    let (file, rest) = try!(parse_c_string(s));
+    status.from_file = file.to_string();
+    Ok(rest)
 }
 
-pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Option<&'a str> {
+pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
     if status.index == 'R' {
-        let (f, rest) = parse_filename(s);
-        match f {
-            Some(file) => status.to_file = file.to_string(),
-            None => {}
-        };
-        rest
+        let (f, rest) = try!(parse_c_string(s));
+        status.to_file = f.to_string();
+        Ok(rest)
     } else {
-        Some(s)
+        Ok(Some(s))
     }
 }
 
@@ -92,23 +87,14 @@ const TERMINATOR: char = '\u{0}';
 
 /// take any character until it meets a zero-byte or the end and
 /// returns the found string and the rest of the string
-pub fn parse_c_string(stream: &str) -> Option<(&str,&str)> {
+pub fn parse_c_string(stream: &str) -> Result<(&str, Option<&str>), &str> {
 
     let pos = match stream.chars().position(|c| c == TERMINATOR) {
         Some(pos) => pos,
-        None => return None,
+        None => return Err(""),
     };
 
-    Some((&stream[0..pos], &stream[(pos+1)..]))
-}
-
-fn parse_filename<'a>(s: &'a str) -> (Option<&'a str>, Option<&'a str>) {
-    let  v: Vec<&str> = s.splitn(2, "\u{0}").collect();
-    match v.len() {
-        1 => (Some(v[0]), None),
-        2 => (Some(v[0]), Some(v[1])),
-        _ => (None, None)
-    }
+    Ok((&stream[0..pos], Some(&stream[(pos+1)..])))
 }
 
 #[cfg(test)]
@@ -135,8 +121,8 @@ mod tests {
         let input = "demo\u{0}second\u{0}";
 
         let (f, rest) = match parse_c_string(input){
-            Some((f, rest)) => (f,rest),
-            None => ("",""),
+            Ok((f, Some(rest))) => (f,rest),
+            _ => ("",""),
         };
         println!("{:?} {:?}", f, rest);
         assert!(f == "demo");
@@ -148,8 +134,8 @@ mod tests {
         let input = "demo\u{0}";
 
         let (f, rest) = match parse_c_string(input){
-            Some((f, rest)) => (f,rest),
-            None => ("",""),
+            Ok((f, Some(rest))) => (f,rest),
+            _ => ("",""),
         };
         println!("{:?} {:?}", f, rest);
         assert!(f == "demo");
@@ -161,8 +147,8 @@ mod tests {
         let input = "demo";
 
         let (_, _) = match parse_c_string(input){
-            Some((f, rest)) => { assert!(false); (f,rest)},
-            None => ("", ""),
+            Ok((f, Some(rest))) => (f,rest),
+            _ => ("",""),
         };
     }
 }

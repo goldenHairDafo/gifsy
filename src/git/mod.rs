@@ -128,12 +128,24 @@ impl Repository {
             .output()
             .expect("can't execute git status");
 
+        debug!("pull output stdout: {}", String::from_utf8_lossy(&output.stdout));
+        debug!("pull output stderr: {}", String::from_utf8_lossy(&output.stderr));
+        debug!("pull status: {}", output.status);
         if output.status.success() {
-            Ok(())
+            match output.status.code() {
+                Some(rc) => if rc != 0 {
+                    Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                            format!("can't push: {} err: {}",
+                                                    String::from_utf8_lossy(&output.stdout),
+                                                    String::from_utf8_lossy(&output.stderr))))
+                } else { Ok(())},
+                None => Ok(())
+            }
         } else {
             Err(GifsyError::CmdFail(output.status.code().unwrap(),
-                                    format!("can't pull: {}",
-                                            String::from_utf8_lossy(&output.stdout))))
+                                    format!("can't pull: {} err: {}",
+                                            String::from_utf8_lossy(&output.stdout),
+                                            String::from_utf8_lossy(&output.stderr))))
         }
     }
     pub fn push<'a >(&self) -> Result<(),GifsyError> {
@@ -144,16 +156,77 @@ impl Repository {
             .output()
             .expect("can't execute git status");
 
+        debug!("push output stdout: {}", String::from_utf8_lossy(&output.stdout));
+        debug!("push output stderr: {}", String::from_utf8_lossy(&output.stderr));
+        debug!("push status: {}", output.status);
         if output.status.success() {
-            Ok(())
+            match output.status.code() {
+                Some(rc) => if rc != 0 {
+                    Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                            format!("can't push: {} err: {}",
+                                                    String::from_utf8_lossy(&output.stdout),
+                                                    String::from_utf8_lossy(&output.stderr))))
+                } else { Ok(())},
+                None => Ok(())
+            }
         } else {
             Err(GifsyError::CmdFail(output.status.code().unwrap(),
-                                    format!("can't push: {}",
-                                            String::from_utf8_lossy(&output.stdout))))
+                                    format!("can't push: {} err: {}",
+                                            String::from_utf8_lossy(&output.stdout),
+                                            String::from_utf8_lossy(&output.stderr))))
+        }
+    }
+    pub fn submodules_init<'a >(&self) -> Result<(),GifsyError> {
+        let output = Command::new("git")
+            .current_dir(&self.path)
+            .arg("submodule")
+            .arg("init")
+            .output()
+            .expect("can't execute git status");
+
+        if output.status.success() {
+            match output.status.code() {
+                Some(rc) => if rc != 0 {
+                    Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                            format!("can't init submodules: {} err: {}",
+                                                    String::from_utf8_lossy(&output.stdout),
+                                                    String::from_utf8_lossy(&output.stderr))))
+                } else { Ok(())},
+                None => Ok(())
+            }
+        } else {
+            Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                    format!("can't init submodules: {} err: {}",
+                                            String::from_utf8_lossy(&output.stdout),
+                                            String::from_utf8_lossy(&output.stderr))))
+        }
+    }
+    pub fn submodules_update<'a >(&self) -> Result<(),GifsyError> {
+        let output = Command::new("git")
+            .current_dir(&self.path)
+            .arg("submodule")
+            .arg("update")
+            .output()
+            .expect("can't execute git status");
+
+        if output.status.success() {
+            match output.status.code() {
+                Some(rc) => if rc != 0 {
+                    Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                            format!("can't update submodules: {} err: {}",
+                                                    String::from_utf8_lossy(&output.stdout),
+                                                    String::from_utf8_lossy(&output.stderr))))
+                } else { Ok(())},
+                None => Ok(())
+            }
+        } else {
+            Err(GifsyError::CmdFail(output.status.code().unwrap(),
+                                    format!("can't update submodules: {} err: {}",
+                                            String::from_utf8_lossy(&output.stdout),
+                                            String::from_utf8_lossy(&output.stderr))))
         }
     }
 }
-
 
 #[derive(Clone)]
 pub struct Status {

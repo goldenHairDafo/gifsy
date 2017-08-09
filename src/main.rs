@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate clap;
 #[macro_use]
 extern crate log;
@@ -104,28 +103,32 @@ fn status(repo: &git::Repository) -> Result<(), MainError> {
 
 fn sync(repo: &git::Repository) -> Result<(), MainError> {
 
-    debug!("syncronize repository");
+    debug!("synchronize repository");
 
-    debug!("pull changes");
-    try!(repo.pull());
     let mut status = try!(repo.status());
     if status.len() > 0 {
-        debug!("add and push local changes");
+        debug!("add and commit local changes");
         try!(repo.add(status));
         status = try!(repo.status());
         try!(repo.commit(status));
-        try!(repo.push());
-        Ok(())
     } else {
         debug!("no local changes");
-        Ok(())
     }
+    debug!("pull changes");
+    try!(repo.pull());
+    debug!("handle submodules");
+    try!(repo.submodules_init());
+    try!(repo.submodules_update());
+    debug!("push changes");
+    try!(repo.push());
+    Ok(())
 }
+
 fn arguments<'a>() -> ArgMatches<'a> {
     App::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")
-        .version("0.9")
-        .about("GIT based file syncronasitaion for dot files")
+        .version("0.9.1")
+        .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(Arg::with_name("repo")
               .short("-r")
