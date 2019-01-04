@@ -80,7 +80,7 @@ impl Repository {
                     }
                 } else {
                     Err( GifsyError::CmdFail(output.status.code().unwrap(),
-                                             String::from_utf8_lossy(&output.stdout).to_string()) )
+                                             String::from_utf8_lossy(&output.stderr).to_string()) )
                 }
             }
     }
@@ -91,7 +91,9 @@ impl Repository {
                     warn!("unmerged file {}", s);
                     continue;
                 }
-                let to_file = s.to_file.clone();
+                let to_file = s.file();
+                debug!("Status: {:?}", s);
+                if s.index == 'D' { continue;};
                 let output = Command::new("git")
                     .current_dir(&self.path)
                     .arg("add")
@@ -103,7 +105,7 @@ impl Repository {
                     return Err(GifsyError::CmdFail(output.status.code().unwrap(),
                                                    format!("can't add {} ({})",
                                                            &to_file,
-                                                           String::from_utf8_lossy(&output.stdout))))
+                                                           String::from_utf8_lossy(&output.stderr))))
                 }
                 rc.push(s.clone());
             }
@@ -245,6 +247,15 @@ pub struct Status {
 impl Status {
     pub fn is_unmerged(&self) -> bool {
         self.index == 'U' || self.tree == 'U'
+    }
+    pub fn file(&self) -> String {
+        if self.to_file == "" {
+            debug!("form file ({})", self.to_file.len());
+            self.from_file.clone()
+        } else {
+            debug!("from file");
+            self.to_file.clone()
+        }
     }
 }
 

@@ -56,14 +56,14 @@ pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>
 
 pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
     let (file, rest) = try!(parse_c_string(s));
-    status.from_file = file.to_string();
+    status.from_file = file.trim().to_string();
     Ok(rest)
 }
 
 pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
     if status.index == 'R' {
         let (f, rest) = try!(parse_c_string(s));
-        status.to_file = f.to_string();
+        status.to_file = f.trim().to_string();
         Ok(rest)
     } else {
         Ok(Some(s))

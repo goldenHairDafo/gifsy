@@ -101,10 +101,10 @@ fn main() {
                 println!("{}", matches.usage());
                 std::process::exit(MainError::SubcommandNotFound.code())}
     };
-    debug!("GIt FileSYncronization done");
+    debug!("ecode: {:?}", ecode);
     let rc = match ecode {
-        Ok(()) => 0,
-        Err(rc) => rc.code(),
+        Ok(()) => { debug!("GIt FileSYncronization done"); 0},
+        Err(rc) => { println!("GIt FileSYncronization done with error {:?}", rc); rc.code()},
     };
     std::process::exit(rc);
 }
@@ -125,9 +125,11 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
 
     let mut status = try!(repo.status());
     if status.len() > 0 {
-        debug!("add and commit local changes");
+        debug!("add local changes");
         try!(repo.add(status));
+        debug!("update local status");
         status = try!(repo.status());
+        debug!("comit local changes");
         try!(repo.commit(status));
     } else {
         debug!("no local changes");
