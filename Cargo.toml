@@ -1,6 +1,6 @@
 [package]
 name = "gifsy"
-version = "0.9.1"
+version = "0.9.3"
 authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]
@@ -8,3 +8,4 @@ chrono = "0.2"
 clap = "2"
 env_logger = "0.3"
 log = "0.3"
+notify-rust = "3"
