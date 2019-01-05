@@ -1,25 +1,44 @@
 use notify_rust::Notification;
-use std::result;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-pub type Result = result::Result<(), String>;
+static ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn disable() {
+    ENABLED.store(false, Ordering::Relaxed);
+}
+pub fn enable() {
+    ENABLED.store(true, Ordering::Relaxed);
+}
 
 #[cfg(target_os = "linux")]
-pub fn notify(sum: &str, msg: &str) -> Result {
-    let res = Notification::new().summary(sum).body(msg).show();
-    match res
+pub fn send(sum: &str, msg: &str) {
+    if ENABLED.load(Ordering::Relaxed)
     {
-        Ok(_) => Ok(()),
-        Err(_) => Err("can't notify".to_owned()),
+        Notification::new()
+            .summary(sum)
+            .body(msg)
+            .show()
+            .map(|_x| 0)
+            .unwrap_or(0);
     }
 }
 #[cfg(target_os = "macos")]
-pub fn notify(sum: &str, msg: &str) -> Result {
-    let res = Notification::new().summary(sum).body(msg).show();
-    Ok(())
+pub fn send(sum: &str, msg: &str) {
+    if ENABLED.load(Ordering::Relaxed)
+    {
+        Notification::new()
+            .summary(sum)
+            .body(msg)
+            .show()
+            .map(|_| 0)
+            .unwrap_or(0);
+    }
 }
 #[cfg(other)]
-pub fn notify(sum: &str, msg: &str) -> Result {
-    println!("{}", sum);
-    println!("{}", msg);
-    Ok(())
+pub fn send(sum: &str, msg: &str) {
+    if ENABLED.load(Ordering::Relaxed)
+    {
+        println!("{}", sum);
+        println!("{}", msg);
+    }
 }

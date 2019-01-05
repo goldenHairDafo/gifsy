@@ -9,7 +9,7 @@ use std::string::*;
 use chrono::Local;
 
 use self::parser::*;
-use super::notify::notify;
+use super::notify;
 
 #[macro_use]
 pub mod parser;
@@ -111,7 +111,7 @@ impl Repository {
             {
                 warn!("unmerged file {}", s);
                 let msg = format!("File {}", s.file());
-                notify("GIt FileSYncronization needs attension", &msg).unwrap_or(());
+                notify::send("GIt FileSYncronization needs attension", &msg);
                 continue;
             }
             let to_file = s.file();
@@ -121,7 +121,7 @@ impl Repository {
                 continue;
             };
             //let msg = format!("{} modified", to_file);
-            //notify("gifsy sync", &msg).unwrap_or(());
+            //notify::send("gifsy sync", &msg);
             let output = Command::new("git")
                 .current_dir(&self.path)
                 .arg("add")
@@ -170,7 +170,7 @@ impl Repository {
                         let f = format!("  {}\n", &s.file());
                         msg += &f;
                     }
-                    notify("GIt FileSYncronization Files Modified", &msg).unwrap_or(());
+                    notify::send("GIt FileSYncronization Files Modified", &msg);
                 }
                 Ok({})
             }

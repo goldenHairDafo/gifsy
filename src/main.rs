@@ -13,7 +13,7 @@ use std::path;
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use gifsy::git;
 use gifsy::git::GifsyError;
-use gifsy::notify::notify;
+use gifsy::notify;
 
 #[derive(Debug, Clone)]
 enum MainError {
@@ -75,7 +75,6 @@ fn main() {
             defaultpath.to_string_lossy().into_owned()
         }
     };
-
     // Work the command line arguments
     let matches = arguments();
 
@@ -89,13 +88,20 @@ fn main() {
         Some(repo) => repo.to_string(),
         None => name_env,
     };
+    if matches.is_present("notify")
+    {
+        notify::enable();
+    }
     debug!("use repository {}", repo);
-
     let r = match git::Repository::from(repo, &name)
     {
         Ok(r) => r,
         Err(e) =>
         {
+            notify::send(
+                "GIt FileSYncronization needs attension",
+                "gifsy sync needs some love",
+            );
             error!("can't create repository{}", e);
             std::process::exit(MainError::NoRepository.code())
         }
@@ -130,11 +136,10 @@ fn main() {
         }
         Err(rc) =>
         {
-            notify(
+            notify::send(
                 "GIt FileSYncronization needs attension",
                 "gifsy sync needs some love",
-            )
-            .unwrap_or(());
+            );
             println!("GIt FileSYncronization done with error {:?}", rc);
             rc.code()
         }
@@ -184,7 +189,7 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
 fn arguments<'a>() -> ArgMatches<'a> {
     App::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")
-        .version("0.9.1")
+        .version("0.9.4")
         .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(
@@ -202,6 +207,12 @@ fn arguments<'a>() -> ArgMatches<'a> {
                 .value_name("NAME")
                 .takes_value(true)
                 .help("Sets the name to identify the host"),
+        )
+        .arg(
+            Arg::with_name("notify")
+                .long("notify")
+                .takes_value(false)
+                .help("enables desktop notification"),
         )
         .subcommand(SubCommand::with_name("sync").about("Synchronize the repository"))
         .subcommand(SubCommand::with_name("status").about("Status of the repository"))
