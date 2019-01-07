@@ -21,7 +21,6 @@ pub enum GifsyError {
     ParserError(String),
     CmdFail(i32, String),
 }
-
 impl fmt::Display for GifsyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self
@@ -36,7 +35,6 @@ impl fmt::Display for GifsyError {
         }
     }
 }
-
 impl error::Error for GifsyError {
     fn description(&self) -> &str {
         match *self
@@ -110,7 +108,7 @@ impl Repository {
             if s.is_unmerged()
             {
                 warn!("unmerged file {}", s);
-                let msg = format!("File {}", s.file());
+                let msg = format!("File {} need to be manually merged", s.file());
                 notify::send("GIt FileSYncronization needs attension", &msg);
                 continue;
             }

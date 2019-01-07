@@ -1,8 +1,8 @@
 extern crate clap;
+extern crate flexi_logger;
+extern crate notify_rust;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
-extern crate notify_rust;
 
 extern crate gifsy;
 
@@ -11,6 +11,7 @@ use std::error::Error;
 use std::path;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use flexi_logger::{Duplicate, Logger};
 use gifsy::git;
 use gifsy::git::GifsyError;
 use gifsy::notify;
@@ -44,12 +45,10 @@ impl From<GifsyError> for MainError {
         }
     }
 }
-
 fn main() {
-    env_logger::init().unwrap();
-
-    debug!("GIt FileSYncronization startet");
-
+    let home = env::var("HOME")
+        .ok()
+        .expect("HOME environemnt variable not found");
     let host_env = match env::var("HOST")
     {
         Ok(h) => h,
@@ -66,10 +65,7 @@ fn main() {
         Err(_) =>
         {
             debug!("use default repository path");
-            let home = env::var("HOME")
-                .ok()
-                .expect("HOME environemnt variable not found");
-            let mut defaultpath = Box::new(path::PathBuf::from(home));
+            let mut defaultpath = Box::new(path::PathBuf::from(home.clone()));
             defaultpath.push("Shared");
             defaultpath.push("sync");
             defaultpath.to_string_lossy().into_owned()
@@ -88,10 +84,27 @@ fn main() {
         Some(repo) => repo.to_string(),
         None => name_env,
     };
+    let logdir: &str = &match matches.value_of("logdir")
+    {
+        Some(repo) => repo.to_string(),
+        None => format!("{}/var/log", home),
+    };
     if matches.is_present("notify")
     {
         notify::enable();
     }
+    /* Setting up logging */
+    Logger::with_env_or_str("warn")
+        .directory(logdir)
+        .log_to_file()
+        .suppress_timestamp()
+        .append()
+        .duplicate_to_stderr(Duplicate::Error)
+        .start()
+        .unwrap();
+
+    debug!("GIt FileSYncronization startet");
+
     debug!("use repository {}", repo);
     let r = match git::Repository::from(repo, &name)
     {
@@ -121,12 +134,11 @@ fn main() {
         },
         None =>
         {
-            error!("no subcommand found");
-            println!("{}", matches.usage());
+            error!("no subcommand found\n{}", matches.usage());
             std::process::exit(MainError::SubcommandNotFound.code())
         }
     };
-    debug!("ecode: {:?}", ecode);
+    debug!("command return code: {:?}", ecode);
     let rc = match ecode
     {
         Ok(()) =>
@@ -140,7 +152,7 @@ fn main() {
                 "GIt FileSYncronization needs attension",
                 "gifsy sync needs some love",
             );
-            println!("GIt FileSYncronization done with error {:?}", rc);
+            error!("GIt FileSYncronization done with error {:?}", rc);
             rc.code()
         }
     };
@@ -189,7 +201,7 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
 fn arguments<'a>() -> ArgMatches<'a> {
     App::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")
-        .version("0.9.4")
+        .version("0.9.5")
         .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(
@@ -207,6 +219,14 @@ fn arguments<'a>() -> ArgMatches<'a> {
                 .value_name("NAME")
                 .takes_value(true)
                 .help("Sets the name to identify the host"),
+        )
+        .arg(
+            Arg::with_name("logdir")
+                .short("-l")
+                .long("logdir")
+                .value_name("LOGDIR")
+                .takes_value(true)
+                .help("Sets the directory to write log file to"),
         )
         .arg(
             Arg::with_name("notify")
