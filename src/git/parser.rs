@@ -28,7 +28,7 @@ pub fn parse<'a, F>(sstr: &'a str, parsers: Vec<ParserFn<'a>> ) ->
                             from_file: "".to_string(),
                             to_file: "".to_string()});
         for p in &parsers {
-            rest = match try!(p(rest, status.as_mut())) {
+            rest = match p(rest, status.as_mut())? {
                 Some(r) => r,
                 None => return Err("")
             }
@@ -55,14 +55,14 @@ pub fn parse_tree<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>
 }
 
 pub fn parse_from<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
-    let (file, rest) = try!(parse_c_string(s));
+    let (file, rest) = parse_c_string(s)?;
     status.from_file = file.trim().to_string();
     Ok(rest)
 }
 
 pub fn parse_to<'a>(s: &'a str, status: &mut Status) -> Result<Option<&'a str>, &'a str> {
     if status.index == 'R' {
-        let (f, rest) = try!(parse_c_string(s));
+        let (f, rest) = parse_c_string(s)?;
         status.to_file = f.trim().to_string();
         Ok(rest)
     } else {

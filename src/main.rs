@@ -11,7 +11,7 @@ use std::error::Error;
 use std::path;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use flexi_logger::{Duplicate, Logger};
+use flexi_logger::{Duplicate, Logger, opt_format};
 use gifsy::git;
 use gifsy::git::GifsyError;
 use gifsy::notify;
@@ -87,7 +87,7 @@ fn main() {
     let logdir: &str = &match matches.value_of("logdir")
     {
         Some(repo) => repo.to_string(),
-        None => format!("{}/var/log", home),
+        None => format!("{}/.local/log", home),
     };
     if matches.is_present("notify")
     {
@@ -100,6 +100,7 @@ fn main() {
         .suppress_timestamp()
         .append()
         .duplicate_to_stderr(Duplicate::Error)
+        .format(opt_format)
         .start()
         .unwrap();
 
@@ -162,7 +163,7 @@ fn main() {
 fn status(repo: &git::Repository) -> Result<(), MainError> {
     debug!("check status");
 
-    let status = try!(repo.status());
+    let status = repo.status()?;
 
     println!(
         "{}",
@@ -174,27 +175,27 @@ fn status(repo: &git::Repository) -> Result<(), MainError> {
 fn sync(repo: &git::Repository) -> Result<(), MainError> {
     debug!("synchronize repository");
 
-    let mut status = try!(repo.status());
+    let mut status = repo.status()?;
     if status.len() > 0
     {
         debug!("add local changes");
-        try!(repo.add(status));
+        repo.add(status)?;
         debug!("update local status");
-        status = try!(repo.status());
+        status = repo.status()?;
         debug!("comit local changes");
-        try!(repo.commit(status));
+        repo.commit(status)?;
     }
     else
     {
         debug!("no local changes");
     }
     debug!("pull changes");
-    try!(repo.pull());
+    repo.pull()?;
     debug!("handle submodules");
-    try!(repo.submodules_init());
-    try!(repo.submodules_update());
+    repo.submodules_init()?;
+    repo.submodules_update()?;
     debug!("push changes");
-    try!(repo.push());
+    repo.push()?;
     Ok(())
 }
 
