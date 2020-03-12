@@ -36,15 +36,6 @@ impl fmt::Display for GifsyError {
     }
 }
 impl error::Error for GifsyError {
-    fn description(&self) -> &str {
-        match *self
-        {
-            GifsyError::CmdFail(..) => "the git command couldn't be executed",
-            GifsyError::NoRepoitory => "The path used is not a git repository with a working tree",
-            GifsyError::IoError(ref e) => e.description(),
-            GifsyError::ParserError(..) => "parser error",
-        }
-    }
 }
 
 pub struct Repository {

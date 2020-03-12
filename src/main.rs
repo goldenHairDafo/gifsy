@@ -7,7 +7,6 @@ extern crate log;
 extern crate gifsy;
 
 use std::env;
-use std::error::Error;
 use std::path;
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
@@ -41,7 +40,7 @@ impl From<GifsyError> for MainError {
         match e
         {
             git::GifsyError::CmdFail(c, m) => MainError::GitFailed(c, m),
-            e => MainError::GitFailed(1008, e.description().to_owned()),
+            e => MainError::GitFailed(1008, e.to_string()),
         }
     }
 }
