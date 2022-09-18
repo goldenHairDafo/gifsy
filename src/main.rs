@@ -9,7 +9,8 @@ extern crate gifsy;
 use std::env;
 use std::path;
 
-use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Command, Arg, SubCommand};
+use flexi_logger::FileSpec;
 use flexi_logger::{Duplicate, Logger, opt_format};
 use gifsy::git;
 use gifsy::git::GifsyError;
@@ -71,7 +72,8 @@ fn main() {
         }
     };
     // Work the command line arguments
-    let matches = arguments();
+    let mut app = arguments();
+    let matches = app.clone().get_matches();
 
     let repo = &match matches.value_of("repo")
     {
@@ -93,10 +95,11 @@ fn main() {
         notify::enable();
     }
     /* Setting up logging */
-    Logger::with_env_or_str("warn")
-        .directory(logdir)
-        .log_to_file()
-        .suppress_timestamp()
+    let fspec = FileSpec::default()
+      .directory(logdir)
+      .suppress_timestamp();
+    Logger::try_with_env_or_str("warn").expect("")
+        .log_to_file(fspec)
         .append()
         .duplicate_to_stderr(Duplicate::Error)
         .format(opt_format)
@@ -134,7 +137,7 @@ fn main() {
         },
         None =>
         {
-            error!("no subcommand found\n{}", matches.usage());
+            error!("no subcommand found\n{}", app.render_usage());
             std::process::exit(MainError::SubcommandNotFound.code())
         }
     };
@@ -198,15 +201,15 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
     Ok(())
 }
 
-fn arguments<'a>() -> ArgMatches<'a> {
-    App::new("gifsy")
+fn arguments<'a>() -> App<'a> {
+    Command::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")
-        .version("0.9.5")
+        .version("0.9.7")
         .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(
             Arg::with_name("repo")
-                .short("-r")
+                .short('r')
                 .long("repo")
                 .value_name("PATH")
                 .takes_value(true)
@@ -214,7 +217,7 @@ fn arguments<'a>() -> ArgMatches<'a> {
         )
         .arg(
             Arg::with_name("name")
-                .short("-n")
+                .short('n')
                 .long("name")
                 .value_name("NAME")
                 .takes_value(true)
@@ -222,7 +225,7 @@ fn arguments<'a>() -> ArgMatches<'a> {
         )
         .arg(
             Arg::with_name("logdir")
-                .short("-l")
+                .short('l')
                 .long("logdir")
                 .value_name("LOGDIR")
                 .takes_value(true)
@@ -236,5 +239,4 @@ fn arguments<'a>() -> ArgMatches<'a> {
         )
         .subcommand(SubCommand::with_name("sync").about("Synchronize the repository"))
         .subcommand(SubCommand::with_name("status").about("Status of the repository"))
-        .get_matches()
 }

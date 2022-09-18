@@ -1,11 +1,11 @@
 [package]
 name = "gifsy"
-version = "0.9.6"
+version = "0.9.7"
 authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]
-chrono = "0.2"
-clap = "2"
-flexi_logger = "^0.10.4"
-log = "0.3"
-notify-rust = "3"
+chrono = "0.4"
+clap = "3"
+flexi_logger = "^0.23"
+log = "0.4"
+notify-rust = "4"
