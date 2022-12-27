@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::str;
 use std::string::*;
 
-use chrono::Local;
+use chrono::prelude::*;
 
 use self::parser::*;
 use super::notify;

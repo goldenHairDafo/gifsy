@@ -4,8 +4,8 @@ version = "0.9.7"
 authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]
-chrono = "0.4"
+chrono = { version = "0.4", default_features = false, features = ["clock"] }
 clap = "3"
-flexi_logger = "^0.23"
+flexi_logger = "^0.24"
 log = "0.4"
 notify-rust = "4"
