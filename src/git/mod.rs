@@ -59,9 +59,9 @@ impl Repository {
         }
     }
     pub fn name(&self) -> String {
-        return self.name.clone();
+        self.name.clone()
     }
-    pub fn status<'a>(&self) -> Result<Vec<Box<Status>>, GifsyError> {
+    pub fn status(&self) -> Result<Vec<Box<Status>>, GifsyError> {
         match Command::new("git")
             .current_dir(&self.path)
             .arg("status")
@@ -92,7 +92,7 @@ impl Repository {
             }
         }
     }
-    pub fn add<'a>(&self, status: Vec<Box<Status>>) -> Result<Vec<Box<Status>>, GifsyError> {
+    pub fn add(&self, status: Vec<Box<Status>>) -> Result<Vec<Box<Status>>, GifsyError> {
         let mut rc = Vec::new();
         for s in &status
         {
@@ -116,12 +116,12 @@ impl Repository {
                 .arg("add")
                 .arg(&to_file)
                 .output()
-                .expect("can't execute git status");
+                .expect("can't execute git add");
 
             if !output.status.success()
             {
                 return Err(GifsyError::CmdFail(
-                    output.status.code().unwrap(),
+                    output.status.code().unwrap_or(-5),
                     format!(
                         "can't add {} ({})",
                         &to_file,
@@ -133,7 +133,7 @@ impl Repository {
         }
         Ok(rc)
     }
-    pub fn commit<'a>(&self, status: Vec<Box<Status>>) -> Result<(), GifsyError> {
+    pub fn commit(&self, status: Vec<Box<Status>>) -> Result<(), GifsyError> {
         let process = match Command::new("git")
             .current_dir(&self.path)
             .arg("commit")
@@ -148,11 +148,11 @@ impl Repository {
         let msg = create_commit_message(&status, &self.name).unwrap();
         match process.stdin.unwrap().write_all(msg.as_bytes())
         {
-            Err(e) => return Err(GifsyError::IoError(e)),
+            Err(e) => Err(GifsyError::IoError(e)),
             Ok(_) =>
             {
                 let mut msg = String::from("the following files have been changed:\n\n");
-                if status.len() > 0
+                if !status.is_empty()
                 {
                     for s in &status
                     {
@@ -161,17 +161,19 @@ impl Repository {
                     }
                     notify::send("GIt FileSYncronization Files Modified", &msg);
                 }
-                Ok({})
+                Ok(())
             }
         }
     }
-    pub fn pull<'a>(&self) -> Result<(), GifsyError> {
+    pub fn pull(&self) -> Result<(), GifsyError> {
         let output = Command::new("git")
             .current_dir(&self.path)
             .arg("pull")
             .arg("origin")
+            .arg("--rebase")
+            .arg("--autostash")
             .output()
-            .expect("can't execute git status");
+            .expect("can't execute git pull origin");
 
         debug!(
             "pull output stdout: {}",
@@ -190,10 +192,11 @@ impl Repository {
                 {
                     if rc != 0
                     {
+                      dbg!(&output);
                         Err(GifsyError::CmdFail(
-                            output.status.code().unwrap(),
+                            rc,
                             format!(
-                                "can't push: {} err: {}",
+                                "pull failed: {} err: {}",
                                 String::from_utf8_lossy(&output.stdout),
                                 String::from_utf8_lossy(&output.stderr)
                             ),
@@ -210,22 +213,22 @@ impl Repository {
         else
         {
             Err(GifsyError::CmdFail(
-                output.status.code().unwrap(),
+                output.status.code().unwrap_or(-1),
                 format!(
-                    "can't pull: {} err: {}",
+                    "couldn't call git pull: {} err: {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ),
             ))
         }
     }
-    pub fn push<'a>(&self) -> Result<(), GifsyError> {
+    pub fn push(&self) -> Result<(), GifsyError> {
         let output = Command::new("git")
             .current_dir(&self.path)
             .arg("push")
             .arg("origin")
             .output()
-            .expect("can't execute git status");
+            .expect("can't execute git push");
 
         debug!(
             "push output stdout: {}",
@@ -245,7 +248,7 @@ impl Repository {
                     if rc != 0
                     {
                         Err(GifsyError::CmdFail(
-                            output.status.code().unwrap(),
+                            rc,
                             format!(
                                 "can't push: {} err: {}",
                                 String::from_utf8_lossy(&output.stdout),
@@ -264,22 +267,22 @@ impl Repository {
         else
         {
             Err(GifsyError::CmdFail(
-                output.status.code().unwrap(),
+                output.status.code().unwrap_or(-2),
                 format!(
-                    "can't push: {} err: {}",
+                    "couldn't call git push: {} err: {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ),
             ))
         }
     }
-    pub fn submodules_init<'a>(&self) -> Result<(), GifsyError> {
+    pub fn submodules_init(&self) -> Result<(), GifsyError> {
         let output = Command::new("git")
             .current_dir(&self.path)
             .arg("submodule")
             .arg("init")
             .output()
-            .expect("can't execute git status");
+            .expect("can't execute git submodule init");
 
         if output.status.success()
         {
@@ -290,7 +293,7 @@ impl Repository {
                     if rc != 0
                     {
                         Err(GifsyError::CmdFail(
-                            output.status.code().unwrap(),
+                            rc,
                             format!(
                                 "can't init submodules: {} err: {}",
                                 String::from_utf8_lossy(&output.stdout),
@@ -309,22 +312,22 @@ impl Repository {
         else
         {
             Err(GifsyError::CmdFail(
-                output.status.code().unwrap(),
+                output.status.code().unwrap_or(-3),
                 format!(
-                    "can't init submodules: {} err: {}",
+                    "couldn't call init submodules: {} err: {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ),
             ))
         }
     }
-    pub fn submodules_update<'a>(&self) -> Result<(), GifsyError> {
+    pub fn submodules_update(&self) -> Result<(), GifsyError> {
         let output = Command::new("git")
             .current_dir(&self.path)
             .arg("submodule")
             .arg("update")
             .output()
-            .expect("can't execute git status");
+            .expect("can't execute git submodule update");
 
         if output.status.success()
         {
@@ -335,7 +338,7 @@ impl Repository {
                     if rc != 0
                     {
                         Err(GifsyError::CmdFail(
-                            output.status.code().unwrap(),
+                            rc,
                             format!(
                                 "can't update submodules: {} err: {}",
                                 String::from_utf8_lossy(&output.stdout),
@@ -354,9 +357,9 @@ impl Repository {
         else
         {
             Err(GifsyError::CmdFail(
-                output.status.code().unwrap(),
+                output.status.code().unwrap_or(-4),
                 format!(
-                    "can't update submodules: {} err: {}",
+                    "couldn't call update submodules: {} err: {}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ),
@@ -378,7 +381,7 @@ impl Status {
         self.index == 'U' || self.tree == 'U'
     }
     pub fn file(&self) -> String {
-        if self.to_file == ""
+        if self.to_file.is_empty()
         {
             debug!("form file ({})", self.to_file.len());
             self.from_file.clone()
@@ -393,7 +396,7 @@ impl Status {
 
 impl fmt::Debug for Status {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.to_file == ""
+        if self.to_file.is_empty()
         {
             write!(f, "{}{} {}", self.index, self.tree, self.from_file)
         }
@@ -410,7 +413,7 @@ impl fmt::Debug for Status {
 
 impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.to_file == ""
+        if self.to_file.is_empty()
         {
             write!(f, "  {} {}", encode_status_flag(self.index), self.from_file)
         }

@@ -1,6 +1,6 @@
 [package]
 name = "gifsy"
-version = "0.9.7"
+version = "0.9.8"
 authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]

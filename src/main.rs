@@ -47,7 +47,6 @@ impl From<GifsyError> for MainError {
 }
 fn main() {
     let home = env::var("HOME")
-        .ok()
         .expect("HOME environemnt variable not found");
     let host_env = match env::var("HOST")
     {
@@ -109,7 +108,7 @@ fn main() {
     debug!("GIt FileSYncronization startet");
 
     debug!("use repository {}", repo);
-    let r = match git::Repository::from(repo, &name)
+    let r = match git::Repository::from(repo, name)
     {
         Ok(r) => r,
         Err(e) =>
@@ -178,13 +177,13 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
     debug!("synchronize repository");
 
     let mut status = repo.status()?;
-    if status.len() > 0
+    if !status.is_empty()
     {
         debug!("add local changes");
         repo.add(status)?;
         debug!("update local status");
         status = repo.status()?;
-        debug!("comit local changes");
+        debug!("commit local changes");
         repo.commit(status)?;
     }
     else
@@ -204,7 +203,7 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
 fn arguments<'a>() -> App<'a> {
     Command::new("gifsy")
         .author("Dafo with the golden Hair <dafo@e6z9r.net>")
-        .version("0.9.7")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("GIT based file synchronization for dot files")
         .setting(AppSettings::SubcommandRequired)
         .arg(
