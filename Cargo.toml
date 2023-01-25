@@ -1,6 +1,6 @@
 [package]
 name = "gifsy"
-version = "0.9.8"
+version = "0.9.9"
 authors = ["Dafo with the golden Hair <dafo@e6z9r.net>"]
 
 [dependencies]
@@ -9,3 +9,6 @@ clap = "3"
 flexi_logger = "^0.24"
 log = "0.4"
 notify-rust = "4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-journald = "0.3"

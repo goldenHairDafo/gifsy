@@ -1,8 +1,10 @@
 extern crate clap;
-extern crate flexi_logger;
+//extern crate flexi_logger;
 extern crate notify_rust;
 #[macro_use]
-extern crate log;
+extern crate tracing;
+extern crate tracing_subscriber;
+extern crate tracing_journald;
 
 extern crate gifsy;
 
@@ -10,11 +12,12 @@ use std::env;
 use std::path;
 
 use clap::{App, AppSettings, Command, Arg, SubCommand};
-use flexi_logger::FileSpec;
-use flexi_logger::{Duplicate, Logger, opt_format};
+//use flexi_logger::FileSpec;
+//use flexi_logger::{Duplicate, Logger, opt_format};
 use gifsy::git;
 use gifsy::git::GifsyError;
 use gifsy::notify;
+use tracing_subscriber::prelude::*;
 
 #[derive(Debug, Clone)]
 enum MainError {
@@ -46,6 +49,29 @@ impl From<GifsyError> for MainError {
     }
 }
 fn main() {
+
+    let fmt_sub = tracing_subscriber::fmt()
+      .with_ansi(true)
+      .with_level(true)
+      .with_max_level(tracing::Level::INFO)
+      .with_target(false)
+      .with_writer(std::io::sink)
+      .finish();
+
+    match tracing_journald::layer()
+    {
+      Ok(journal_sub) => {
+        let sub = fmt_sub.with(journal_sub);
+        tracing::subscriber::set_global_default(sub)
+      },
+      Err(err) => 
+      {
+        error!("couldn't init journald logging {err}");
+        tracing::subscriber::set_global_default(fmt_sub)
+      }
+    }.expect("couldn't init tracing");
+
+
     let home = env::var("HOME")
         .expect("HOME environemnt variable not found");
     let host_env = match env::var("HOST")
@@ -64,7 +90,7 @@ fn main() {
         Err(_) =>
         {
             debug!("use default repository path");
-            let mut defaultpath = Box::new(path::PathBuf::from(home.clone()));
+            let mut defaultpath = Box::new(path::PathBuf::from(home));
             defaultpath.push("Shared");
             defaultpath.push("sync");
             defaultpath.to_string_lossy().into_owned()
@@ -84,28 +110,11 @@ fn main() {
         Some(repo) => repo.to_string(),
         None => name_env,
     };
-    let logdir: &str = &match matches.value_of("logdir")
-    {
-        Some(repo) => repo.to_string(),
-        None => format!("{}/.local/log", home),
-    };
     if matches.is_present("notify")
     {
         notify::enable();
     }
-    /* Setting up logging */
-    let fspec = FileSpec::default()
-      .directory(logdir)
-      .suppress_timestamp();
-    Logger::try_with_env_or_str("warn").expect("")
-        .log_to_file(fspec)
-        .append()
-        .duplicate_to_stderr(Duplicate::Error)
-        .format(opt_format)
-        .start()
-        .unwrap();
-
-    debug!("GIt FileSYncronization startet");
+    info!("GIt FileSYncronization startet");
 
     debug!("use repository {}", repo);
     let r = match git::Repository::from(repo, name)
@@ -158,6 +167,7 @@ fn main() {
             rc.code()
         }
     };
+    info!("GIt FileSYncronization done");
     std::process::exit(rc);
 }
 
@@ -183,19 +193,19 @@ fn sync(repo: &git::Repository) -> Result<(), MainError> {
         repo.add(status)?;
         debug!("update local status");
         status = repo.status()?;
-        debug!("commit local changes");
+        info!("commit local changes");
         repo.commit(status)?;
     }
     else
     {
         debug!("no local changes");
     }
-    debug!("pull changes");
+    info!("pull changes");
     repo.pull()?;
     debug!("handle submodules");
     repo.submodules_init()?;
     repo.submodules_update()?;
-    debug!("push changes");
+    info!("push changes");
     repo.push()?;
     Ok(())
 }
